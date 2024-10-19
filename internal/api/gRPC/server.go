@@ -19,6 +19,7 @@ type Server struct {
 	PrecisedTrades chan *pbM.Trades
 	logger         *slog.Logger
 	pbMClient      pbM.MatchingEngineClient
+	pbMConn        *grpc.ClientConn
 	pbQ.UnimplementedQuoteServer
 }
 
@@ -34,17 +35,17 @@ func New(service *service.Service, logger *slog.Logger) *Server {
 func (s *Server) RunGRPCServer() error {
 	lis, err := net.Listen("tcp", ":50052")
 	if err != nil {
-		s.logger.Error("Failed to listen", "error", err)
+		s.logger.Error("failed to listen", "error", err)
 		return err
 	}
 
 	grpcServer := grpc.NewServer()
 
 	pbQ.RegisterQuoteServer(grpcServer, s)
-	s.logger.Info("Server is listening on port 50052...")
+	s.logger.Info("server is listening on port 50052...")
 
 	if err := grpcServer.Serve(lis); err != nil {
-		s.logger.Error("Failed to serve", "err", err)
+		s.logger.Error("failed to serve", "err", err)
 		return err
 	}
 
@@ -52,7 +53,7 @@ func (s *Server) RunGRPCServer() error {
 }
 
 func (s *Server) RunGRPCClient() error {
-	conn, err := grpc.NewClient(os.Getenv("CONNADDR"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(os.Getenv("CONN_ADDR_MATCHING_ENGINE"), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		s.logger.Error("GRPC error connecting client to localhost:50051", "error", err)
 		return err
@@ -61,4 +62,12 @@ func (s *Server) RunGRPCClient() error {
 	s.pbMClient = pbM.NewMatchingEngineClient(conn)
 
 	return nil
+}
+
+func (s *Server) CloseConnection() {
+	if s.pbMConn != nil {
+		if err := s.pbMConn.Close(); err != nil {
+			s.logger.Error("failed to close Matching Engine connection", "error", err)
+		}
+	}
 }

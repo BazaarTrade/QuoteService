@@ -12,7 +12,7 @@ func Run() {
 	handler := slog.NewTextHandler(os.Stdout, nil)
 	logger := slog.New(handler)
 
-	logger.Info("Starting aplication...")
+	logger.Info("starting aplication...")
 
 	service := service.New(logger)
 
