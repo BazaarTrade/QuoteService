@@ -1,16 +1,25 @@
 package service
 
 import (
-	"github.com/BazaarTrade/QuoteService/internal/models.go"
+	"github.com/BazaarTrade/QuoteService/internal/models"
 	"github.com/shopspring/decimal"
 )
 
 type orderBookPrecisions struct {
-	pricePrecisions []int32
-	qtyPrecision    int32
+	price []int32
+	qty   int32
 }
 
 func (s *Service) PreciseOrderBookSnaphot(OBS models.OrderBookSnapshot) {
+	s.mu.RLock()
+	hub, exists := s.Streams[OBS.Pair]
+	s.mu.RUnlock()
+
+	if !exists {
+		s.logger.Error("failed to find stream hub", "pair", OBS.Pair)
+		return
+	}
+
 	preciseLimits := func(limits []models.Limit, precision int32, isBid bool) []models.Limit {
 		precisedLimits := make([]models.Limit, 0)
 
@@ -35,14 +44,14 @@ func (s *Service) PreciseOrderBookSnaphot(OBS models.OrderBookSnapshot) {
 				if i+1 == len(limits) {
 					precisedLimits = append(precisedLimits, models.Limit{
 						Price: precisedLimitPrice,
-						Qty:   limitQty.Truncate(s.orderBookPrecisions[OBS.Pair].qtyPrecision),
+						Qty:   limitQty.Truncate(hub.orderBookPrecisions.qty),
 					})
 					break
 				}
 			} else {
 				precisedLimits = append(precisedLimits, models.Limit{
 					Price: precisedLimitPrice,
-					Qty:   limitQty.Truncate(s.orderBookPrecisions[OBS.Pair].qtyPrecision),
+					Qty:   limitQty.Truncate(hub.orderBookPrecisions.qty),
 				})
 
 				if isBid {
@@ -54,7 +63,7 @@ func (s *Service) PreciseOrderBookSnaphot(OBS models.OrderBookSnapshot) {
 				if i+1 == len(limits) {
 					precisedLimits = append(precisedLimits, models.Limit{
 						Price: precisedLimitPrice,
-						Qty:   limit.Qty.Truncate(s.orderBookPrecisions[OBS.Pair].qtyPrecision),
+						Qty:   limit.Qty.Truncate(hub.orderBookPrecisions.qty),
 					})
 					break
 				}
@@ -68,7 +77,7 @@ func (s *Service) PreciseOrderBookSnaphot(OBS models.OrderBookSnapshot) {
 
 	pOBSs := make(map[int32]models.OrderBookSnapshot)
 
-	for _, precision := range s.orderBookPrecisions[OBS.Pair].pricePrecisions {
+	for _, precision := range hub.orderBookPrecisions.price {
 		OBS.Bids = preciseLimits(OBS.Bids, precision, true)
 		OBS.Asks = preciseLimits(OBS.Asks, precision, false)
 
@@ -83,10 +92,19 @@ func (s *Service) PreciseOrderBookSnaphot(OBS models.OrderBookSnapshot) {
 		pOBSs[precision] = pOBS
 	}
 
-	s.PrecisedOBSs[OBS.Pair] <- pOBSs
+	hub.PrecisedOrderBookSnapshotsChan <- pOBSs
 }
 
 func (s *Service) PreciseTrades(trades []models.Trade) {
+	s.mu.RLock()
+	hub, exists := s.Streams[trades[0].Pair]
+	s.mu.RUnlock()
+
+	if !exists {
+		s.logger.Error("failed to find stream hub", "pair", trades[0].Pair)
+		return
+	}
+
 	if len(trades) == 0 {
 		s.logger.Error("trades are empty")
 		return
@@ -97,12 +115,5 @@ func (s *Service) PreciseTrades(trades []models.Trade) {
 		trades[i].Qty = trades[i].Qty.Truncate(6)
 	}
 
-	pair := trades[0].Pair
-
-	if ch, ok := s.PrecisedTrades[pair]; ok {
-		ch <- trades
-	} else {
-		s.logger.Error("failed to find precised trades chan", "pair", pair)
-		return
-	}
+	hub.PrecisedTradesChan <- trades
 }

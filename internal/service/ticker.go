@@ -4,38 +4,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BazaarTrade/QuoteService/internal/models.go"
+	"github.com/BazaarTrade/QuoteService/internal/models"
 	"github.com/shopspring/decimal"
 )
 
 type ticker struct {
 	pair      string
-	trades    []models.Trade
 	lastPrice decimal.Decimal
 	change    decimal.Decimal
 	highPrice decimal.Decimal
 	lowPrice  decimal.Decimal
 	volume    decimal.Decimal
 	turnover  decimal.Decimal
-
-	mu sync.Mutex
+	trades    []models.Trade
+	mu        sync.Mutex
 }
 
-func (s *Service) TickerTick(pair string) {
-	s.mu.RLock()
-	ticker, tickerExists := s.Tickers[pair]
-	tickerChan, chanrExists := s.Ticker[pair]
-	s.mu.RUnlock()
-
-	if !tickerExists {
-		s.logger.Error("failed to find ticker", "pair", pair)
-		return
-	}
-
-	if !chanrExists {
-		s.logger.Error("failed to find ticker chan", "pair", pair)
-		return
-	}
+func (s *Service) TickerTick(pair string, streamHub *StreamHub) {
+	defer streamHub.wg.Done()
 
 	waitTime := time.Until(time.Now().Truncate(time.Second).Add(time.Second))
 	time.Sleep(waitTime)
@@ -44,23 +30,30 @@ func (s *Service) TickerTick(pair string) {
 	defer t.Stop()
 
 	for range t.C {
-		ticker.mu.Lock()
-		tickerChan <- ticker.cleanTrades()
-		ticker.mu.Unlock()
+		streamHub.ticker.mu.Lock()
+		trades := streamHub.ticker.cleanTrades()
+		streamHub.ticker.mu.Unlock()
+		select {
+		case <-streamHub.ctx.Done():
+			s.logger.Info("stopped ticker tick", "pair", pair)
+			return
+		case streamHub.TickerChan <- trades:
+		default:
+		}
 	}
 }
 
 func (s *Service) TickerFormation(trades []models.Trade) {
 	s.mu.RLock()
-	ticker, tickerExists := s.Tickers[trades[0].Pair]
+	hub, exists := s.Streams[trades[0].Pair]
 	s.mu.RUnlock()
 
-	if !tickerExists {
-		s.logger.Error("failed to find ticker", "pair", trades[0].Pair)
+	if !exists {
+		s.logger.Error("failed to find stream hub", "pair", trades[0].Pair)
 		return
 	}
 
-	ticker.addTrades(trades)
+	hub.ticker.addTrades(trades)
 }
 
 func (t *ticker) addTrades(trades []models.Trade) {

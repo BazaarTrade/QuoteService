@@ -7,16 +7,18 @@ import (
 	"github.com/BazaarTrade/QuoteService/internal/converter"
 )
 
-func (s *Server) StreamPrecisedOrderBookSnapshot(req *pbQ.Pair, stream pbQ.Quote_StreamPrecisedOrderBookSnapshotServer) error {
-	pOBSsChan, exists := s.service.PrecisedOBSs[req.Pair]
+func (s *Server) StreamPrecisedOrderBookSnapshots(req *pbQ.Pair, stream pbQ.Quote_StreamPrecisedOrderBookSnapshotsServer) error {
+	hub, exists := s.service.Streams[req.Pair]
 	if !exists {
-		s.logger.Error("failed to find pOBSs chan", "pair", req.Pair)
-		return errors.New("failed to pOBSs chan for: " + req.Pair)
+		s.logger.Error("failed to find stream hub", "pair", req.Pair)
+		return errors.New("failed to find stream hub for: " + req.Pair)
 	}
+
+	s.logger.Info("client connected to pOBSs stream", "pair", req.Pair)
 
 	for {
 		select {
-		case pOBSs, ok := <-pOBSsChan:
+		case pOBSs, ok := <-hub.PrecisedOrderBookSnapshotsChan:
 			if !ok {
 				s.logger.Info("pOBSs stream stopped manualy", "pair", req.Pair)
 				return nil
@@ -37,22 +39,24 @@ func (s *Server) StreamPrecisedOrderBookSnapshot(req *pbQ.Pair, stream pbQ.Quote
 			s.logger.Debug("sent pOBSs", "pair", req.Pair)
 
 		case <-stream.Context().Done():
-			s.logger.Info("precised OBSs stream stopped by client", "pair", req.Pair)
+			s.logger.Info("client disconnected from pOBSs stream", "pair", req.Pair)
 			return nil
 		}
 	}
 }
 
 func (s *Server) StreamPrecisedTrades(req *pbQ.Pair, stream pbQ.Quote_StreamPrecisedTradesServer) error {
-	precisedTradeChan, exists := s.service.PrecisedTrades[req.Pair]
+	hub, exists := s.service.Streams[req.Pair]
 	if !exists {
-		s.logger.Error("failed to find precised trade chan", "pair", req.Pair)
-		return errors.New("failed to precised trade chan for: " + req.Pair)
+		s.logger.Error("failed to find stream hub", "pair", req.Pair)
+		return errors.New("failed to find stream hub for: " + req.Pair)
 	}
+
+	s.logger.Info("client connected to precised trades stream", "pair", req.Pair)
 
 	for {
 		select {
-		case pbMPrecisedTrades, ok := <-precisedTradeChan:
+		case pbMPrecisedTrades, ok := <-hub.PrecisedTradesChan:
 			if !ok {
 				s.logger.Info("precised trade stream stopped manualy", "pair", req.Pair)
 				return nil
@@ -65,22 +69,24 @@ func (s *Server) StreamPrecisedTrades(req *pbQ.Pair, stream pbQ.Quote_StreamPrec
 			s.logger.Debug("sent precised trade", "pair", req.Pair)
 
 		case <-stream.Context().Done():
-			s.logger.Info("precised trade stream stopped by client", "pair", req.Pair)
+			s.logger.Info("client disconnected from precised trades", "pair", req.Pair)
 			return nil
 		}
 	}
 }
 
 func (s *Server) StreamTicker(req *pbQ.Pair, stream pbQ.Quote_StreamTickerServer) error {
-	tickerChan, exists := s.service.Ticker[req.Pair]
+	hub, exists := s.service.Streams[req.Pair]
 	if !exists {
-		s.logger.Error("failed to find ticker chan", "pair", req.Pair)
-		return errors.New("failed to ticker chan for: " + req.Pair)
+		s.logger.Error("failed to find stream hub", "pair", req.Pair)
+		return errors.New("failed to find stream hub for: " + req.Pair)
 	}
+
+	s.logger.Info("client connected to ticker stream", "pair", req.Pair)
 
 	for {
 		select {
-		case ticker, ok := <-tickerChan:
+		case ticker, ok := <-hub.TickerChan:
 			if !ok {
 				s.logger.Info("ticker stream stopped manualy", "pair", req.Pair)
 				return nil
@@ -93,22 +99,24 @@ func (s *Server) StreamTicker(req *pbQ.Pair, stream pbQ.Quote_StreamTickerServer
 			s.logger.Debug("sent ticker", "pair", req.Pair)
 
 		case <-stream.Context().Done():
-			s.logger.Info("ticker stream stopped by client", "pair", req.Pair)
+			s.logger.Info("client disconnected from ticker stream", "pair", req.Pair)
 			return nil
 		}
 	}
 }
 
 func (s *Server) StreamCandleStick(req *pbQ.Pair, stream pbQ.Quote_StreamCandleStickServer) error {
-	candlestickChan, exists := s.service.Candlestick[req.Pair]
+	hub, exists := s.service.Streams[req.Pair]
 	if !exists {
-		s.logger.Error("failed to find candlestick chan", "pair", req.Pair)
-		return errors.New("failed to candlestick chan for: " + req.Pair)
+		s.logger.Error("failed to find stream hub", "pair", req.Pair)
+		return errors.New("failed to find stream hub for: " + req.Pair)
 	}
+
+	s.logger.Info("client connected to candlestick stream", "pair", req.Pair)
 
 	for {
 		select {
-		case candlestick, ok := <-candlestickChan:
+		case candlestick, ok := <-hub.CandlestickChan:
 			if !ok {
 				s.logger.Info("candlestick stream stopped manualy", "pair", req.Pair)
 				return nil
@@ -121,7 +129,7 @@ func (s *Server) StreamCandleStick(req *pbQ.Pair, stream pbQ.Quote_StreamCandleS
 			s.logger.Debug("sent candleStick", "pair", req.Pair)
 
 		case <-stream.Context().Done():
-			s.logger.Info("candlestick stream stopped by client", "pair", req.Pair)
+			s.logger.Info("client disconnected from candleStick stream", "pair", req.Pair)
 			return nil
 		}
 	}

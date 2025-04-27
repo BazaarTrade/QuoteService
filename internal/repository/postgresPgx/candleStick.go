@@ -3,13 +3,13 @@ package postgresPgx
 import (
 	"context"
 
-	"github.com/BazaarTrade/QuoteService/internal/models.go"
+	"github.com/BazaarTrade/QuoteService/internal/models"
 )
 
 func (p *Postgres) CreateCandleStick(candlestick models.Candlestick) (int, error) {
 	var ID int64
 	err := p.db.QueryRow(context.Background(), `
-	INSERT INTO quote.candlestick 
+	INSERT INTO quote.candlesticks
 	(pair, timeframe, openTime, closeTime, openPrice, closePrice, highPrice, lowPrice, volume, turnover) 
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	RETURNING id
@@ -29,7 +29,7 @@ func (p *Postgres) CreateCandleStick(candlestick models.Candlestick) (int, error
 func (p *Postgres) GetTickerInfo24H(pair string) (string, []models.TickerInfo, error) {
 	rows, err := p.db.Query(context.Background(), `
 	SELECT highPrice, lowPrice, volume, turnover
-	FROM quote.candlestick 
+	FROM quote.candlesticks
 	WHERE pair = $1 AND openTime >= NOW() - INTERVAL '24 HOURS' AND timeFrame = '1s'
 	`, pair)
 	if err != nil {
@@ -53,7 +53,7 @@ func (p *Postgres) GetTickerInfo24H(pair string) (string, []models.TickerInfo, e
 	var closePrice string
 	err = p.db.QueryRow(context.Background(), `
 	SELECT closePrice
-	FROM quote.candlestick
+	FROM quote.candlesticks
 	WHERE pair = $1 AND timeframe = '1s'
 	ORDER BY ABS(EXTRACT(EPOCH FROM (openTime - NOW() + INTERVAL '24 hours'))) ASC
 	LIMIT 1;

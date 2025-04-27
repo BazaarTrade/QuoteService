@@ -1,6 +1,6 @@
 package repository
 
-import "github.com/BazaarTrade/QuoteService/internal/models.go"
+import "github.com/BazaarTrade/QuoteService/internal/models"
 
 type Repository interface {
 	CreateCandleStick(models.Candlestick) (int, error)

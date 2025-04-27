@@ -3,7 +3,7 @@ package postgresPgx
 import (
 	"context"
 
-	"github.com/BazaarTrade/QuoteService/internal/models.go"
+	"github.com/BazaarTrade/QuoteService/internal/models"
 )
 
 func (p *Postgres) GetPairsParams() ([]models.PairParams, error) {

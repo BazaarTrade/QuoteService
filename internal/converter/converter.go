@@ -3,7 +3,7 @@ package converter
 import (
 	"github.com/BazaarTrade/MatchingEngineProtoGen/pbM"
 	"github.com/BazaarTrade/QuoteProtoGen/pbQ"
-	"github.com/BazaarTrade/QuoteService/internal/models.go"
+	"github.com/BazaarTrade/QuoteService/internal/models"
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

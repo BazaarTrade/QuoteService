@@ -26,8 +26,8 @@ func New(mClient *mClient.Client, service *service.Service, logger *slog.Logger)
 	}
 }
 
-func (s *Server) Run() error {
-	lis, err := net.Listen("tcp", ":50052")
+func (s *Server) Run(GRPC_PORT string) error {
+	lis, err := net.Listen("tcp", GRPC_PORT)
 	if err != nil {
 		s.logger.Error("failed to listen", "error", err)
 		return err
@@ -38,7 +38,7 @@ func (s *Server) Run() error {
 	s.grpcServer = grpcServer
 
 	pbQ.RegisterQuoteServer(grpcServer, s)
-	s.logger.Info("server is listening on port 50052...")
+	s.logger.Info("server is listening on port " + GRPC_PORT)
 
 	if err := grpcServer.Serve(lis); err != nil {
 		s.logger.Error("failed to serve", "err", err)
@@ -48,5 +48,6 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Stop() {
+	s.service.DeleteStreamHubs()
 	s.grpcServer.GracefulStop()
 }

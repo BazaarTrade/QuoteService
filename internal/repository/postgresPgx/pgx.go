@@ -3,7 +3,6 @@ package postgresPgx
 import (
 	"context"
 	"log/slog"
-	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -13,8 +12,8 @@ type Postgres struct {
 	logger *slog.Logger
 }
 
-func NewPostgres(logger *slog.Logger) (*Postgres, error) {
-	conn, err := pgxpool.New(context.Background(), os.Getenv("DB_CONNECTION"))
+func New(DB_CONNECTION string, logger *slog.Logger) (*Postgres, error) {
+	conn, err := pgxpool.New(context.Background(), DB_CONNECTION)
 	if err != nil {
 		logger.Error("failed to create pgxPool connection", "error", err)
 		return nil, err
@@ -24,4 +23,8 @@ func NewPostgres(logger *slog.Logger) (*Postgres, error) {
 		db:     conn,
 		logger: logger,
 	}, nil
+}
+
+func (p *Postgres) Close() {
+	p.db.Close()
 }

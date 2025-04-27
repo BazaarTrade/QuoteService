@@ -1,8 +1,8 @@
 package mClient
 
 import (
+	"context"
 	"log/slog"
-	"os"
 
 	"github.com/BazaarTrade/MatchingEngineProtoGen/pbM"
 	"github.com/BazaarTrade/QuoteService/internal/service"
@@ -11,24 +11,31 @@ import (
 )
 
 type Client struct {
-	client  pbM.MatchingEngineClient
-	conn    *grpc.ClientConn
-	service *service.Service
-	logger  *slog.Logger
+	client       pbM.MatchingEngineClient
+	conn         *grpc.ClientConn
+	service      *service.Service
+	ctx          context.Context
+	cancel       context.CancelFunc
+	cancelByPair map[string]context.CancelFunc
+	logger       *slog.Logger
 }
 
 func New(service *service.Service, logger *slog.Logger) *Client {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Client{
-		service: service,
-		logger:  logger,
+		service:      service,
+		ctx:          ctx,
+		cancel:       cancel,
+		cancelByPair: make(map[string]context.CancelFunc),
+		logger:       logger,
 	}
 }
 
-func (c *Client) Run() error {
+func (c *Client) Run(CONN_ADDR_MATCHING_ENGINE string) error {
 	var err error
-	c.conn, err = grpc.NewClient(os.Getenv("CONN_ADDR_MATCHING_ENGINE"), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c.conn, err = grpc.NewClient(CONN_ADDR_MATCHING_ENGINE, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.logger.Error("GRPC error connecting client to localhost:50051", "error", err)
+		c.logger.Error("GRPC error connecting to mClient", "error", err)
 		return err
 	}
 
@@ -38,9 +45,21 @@ func (c *Client) Run() error {
 }
 
 func (c *Client) CloseConnection() {
+	if c.cancel != nil {
+		c.cancel()
+		c.cancelByPair = make(map[string]context.CancelFunc)
+	}
+
 	if c.conn != nil {
 		if err := c.conn.Close(); err != nil {
-			c.logger.Error("failed to close Matching Engine connection", "error", err)
+			c.logger.Error("failed to close mClient connection", "error", err)
 		}
+	}
+}
+
+func (c *Client) StopStreamReadersByPair(pair string) {
+	if cancel, ok := c.cancelByPair[pair]; ok {
+		cancel()
+		delete(c.cancelByPair, pair)
 	}
 }
