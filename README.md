@@ -1,0 +1,1 @@
+The QuoteService is responsible for collecting, calculating, and serving market quotes for trading pairs on the BazaarTrade platform. It acts as a bridge between the matching engine (which executes trades) and external/internal consumers (clients, charts, analytics, etc.), offering real-time price information that reflects the state of the market.
